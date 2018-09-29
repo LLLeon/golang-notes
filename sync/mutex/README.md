@@ -325,6 +325,7 @@ if atomic.CompareAndSwapInt32(&m.state, old, new) {
 			throw("sync: inconsistent mutex state")
 		}
 		delta := int32(mutexLocked - 1<<mutexWaiterShift)
+        // 如果不是饥饿模式或只剩一个等待者了，退出饥饿模式
 		if !starving || old>>mutexWaiterShift == 1 {
 			// Exit starvation mode.
 			// Critical to do it here and consider wait time.
@@ -336,10 +337,11 @@ if atomic.CompareAndSwapInt32(&m.state, old, new) {
 		atomic.AddInt32(&m.state, delta)
 		break
 	}
-    // 不是饥饿模式，继续循环
+    // 未处于饥饿模式，让新到来的 goroutine 先获取锁，继续循环
 	awoke = true
 	iter = 0
 } else {
+    // 上面的 CAS 没有成功更新为 new，记录当前状态，继续循环
 	old = m.state
 }
 ```
