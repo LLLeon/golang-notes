@@ -348,7 +348,7 @@ if atomic.CompareAndSwapInt32(&m.state, old, new) {
 
 ### Unlock
 
-Unlock 的源码比较短：
+Unlock 的代码比较少，直接在代码中注释：
 
 ```go
 func (m *Mutex) Unlock() {
@@ -358,25 +358,27 @@ func (m *Mutex) Unlock() {
 	}
 
 	// Fast path: drop lock bit.
+    // 将 mutex 当前状态第一位即锁位置为 0 保存到 new
 	new := atomic.AddInt32(&m.state, -mutexLocked)
+    // 当 new 状态锁位为 1 时会满足此条件，即对未加锁状态的 mutex 进行解锁，抛出错误
 	if (new+mutexLocked)&mutexLocked == 0 {
 		throw("sync: unlock of unlocked mutex")
 	}
+    // 如果未处于饥饿模式
 	if new&mutexStarving == 0 {
 		old := new
 		for {
-            // 如果没有等待者了，或者一个 goroutine 已经被唤醒，再或者已经获取到锁，无需叫醒任意一个。
+            // 如果没有等待者，或者一个 goroutine 已经被唤醒或获取到锁，或处于饥饿模式，
+            // 无需唤醒任何其它被挂起的 goroutine。
             // 在饥饿模式中，所有权直接从执行解锁的 goroutine 传递给下一个等待者。
-            // 我们不是这个链的一部分，因为当我们解锁上面的互斥锁时，没有观察到 mutexStarving，
-            // 还是乖乖返回吧。
 			if old>>mutexWaiterShift == 0 || old&(mutexLocked|mutexWoken|mutexStarving) != 0 {
 				return
 			}
 
-            // 唤醒某个 goroutine
+            // 等待者数量减 1，并将唤醒位改成 1
 			new = (old - 1<<mutexWaiterShift) | mutexWoken
 			if atomic.CompareAndSwapInt32(&m.state, old, new) {
-                // 释放锁，发送释放信号
+                // 唤醒一个阻塞的 goroutine，但不是唤醒第一个等待者
 				runtime_Semrelease(&m.sema, false)
 				return
 			}
@@ -384,12 +386,11 @@ func (m *Mutex) Unlock() {
 		}
 	} else {
         // 饥饿模式：将 mutex 所有权传递给下个等待者。
-        // 注意：mutexLocked 没有设置，等待者将在醒来后设置它。
+        // 注意：mutexLocked 没有设置，等待者将在被唤醒后设置它。
         // 但是如果设置了 mutexStarving，仍然认为 mutex 是锁定的，所以新来的 goroutine 不会获取到它。
 		runtime_Semrelease(&m.sema, true)
 	}
 }
-
 ```
 
 
