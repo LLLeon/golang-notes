@@ -5,7 +5,7 @@ Golang 源码阅读笔记。
 
 ### sync
 
-- [ ] Mutex
+- [x] Mutex
 - [ ] WaitGroup
 - [ ] Map
 - [ ] Pool
