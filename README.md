@@ -27,5 +27,5 @@ net
 - [ ] Defer: runtime/runtime2.go
 - [ ] Memory allocator: runtime/malloc.go
 - [ ] Garbage collector: runtime/mgc.go
+- [ ] G-P-M model: runtime/runtime2.go
 - [ ] Goroutine scheduler: runtime/proc.go
-
